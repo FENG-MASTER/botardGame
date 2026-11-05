@@ -1,0 +1,68 @@
+[
+  {
+    "index": 1,
+    "FaceURL": "http://i.imgur.com/W6uOPaR.jpg",
+    "BackURL": "http://i.imgur.com/eA4M1oo.jpg",
+    "NumWidth": 6,
+    "NumHeight": 6,
+    "BackIsHidden": true,
+    "UniqueBack": false,
+    "Type": 0,
+    "archive_path": "Mods/Images/httpiimgurcomW6uOPaRjpg.jpg"
+  },
+  {
+    "index": 2,
+    "FaceURL": "http://cloud-3.steamusercontent.com/ugc/789753150631431015/ADA0FAA1260A88DE084756453AA986C97FBF7E28/",
+    "BackURL": "http://cloud-3.steamusercontent.com/ugc/789753150631431411/A0A76B19A2E9D0D3AE0CDCB1B7D59FAAFBC3B1DD/",
+    "NumWidth": 6,
+    "NumHeight": 4,
+    "BackIsHidden": false,
+    "UniqueBack": false,
+    "Type": 0,
+    "archive_path": "Mods/Images/httpcloud3steamusercontentcomugc789753150631431015ADA0FAA1260A88DE084756453AA986C97FBF7E28.jpg"
+  },
+  {
+    "index": 3,
+    "FaceURL": "http://cloud-3.steamusercontent.com/ugc/789753150631435432/9E254BF2671C6B9305A5B6587F93533AB3CE1104/",
+    "BackURL": "http://cloud-3.steamusercontent.com/ugc/789753150631435861/26BDFAC55AE2314FB052AE5941368B913562A690/",
+    "NumWidth": 6,
+    "NumHeight": 4,
+    "BackIsHidden": false,
+    "UniqueBack": false,
+    "Type": 0,
+    "archive_path": "Mods/Images/httpcloud3steamusercontentcomugc7897531506314354329E254BF2671C6B9305A5B6587F93533AB3CE1104.jpg"
+  },
+  {
+    "index": 4,
+    "FaceURL": "http://cloud-3.steamusercontent.com/ugc/787501577663171423/BA6E0D50877C34C18BF62BC98D4861BE159881B9/",
+    "BackURL": "http://cloud-3.steamusercontent.com/ugc/789753150631431411/A0A76B19A2E9D0D3AE0CDCB1B7D59FAAFBC3B1DD/",
+    "NumWidth": 1,
+    "NumHeight": 1,
+    "BackIsHidden": true,
+    "UniqueBack": false,
+    "Type": 0,
+    "archive_path": "Mods/Images/httpcloud3steamusercontentcomugc787501577663171423BA6E0D50877C34C18BF62BC98D4861BE159881B9.jpg"
+  },
+  {
+    "index": 5,
+    "FaceURL": "http://cloud-3.steamusercontent.com/ugc/789753150631438148/3587D52442D1532C3335F1F669C801C87762823D/",
+    "BackURL": "http://cloud-3.steamusercontent.com/ugc/789753150631438579/069493796B2094F16011142A9F29E9711E5BE219/",
+    "NumWidth": 2,
+    "NumHeight": 2,
+    "BackIsHidden": false,
+    "UniqueBack": false,
+    "Type": 0,
+    "archive_path": "Mods/Images/httpcloud3steamusercontentcomugc7897531506314381483587D52442D1532C3335F1F669C801C87762823D.jpg"
+  },
+  {
+    "index": 6,
+    "FaceURL": "http://cloud-3.steamusercontent.com/ugc/1477697648593349997/0D7C33C7226D85747F36FECDFCA4E3AEB312A1A1/",
+    "BackURL": "http://cloud-3.steamusercontent.com/ugc/1477697648593342288/42B9FCEFB16CDBA9E439D48057A3BC8A74DA4CC7/",
+    "NumWidth": 10,
+    "NumHeight": 7,
+    "BackIsHidden": false,
+    "UniqueBack": false,
+    "Type": 0,
+    "archive_path": "Mods/Images/httpcloud3steamusercontentcomugc14776976485933499970D7C33C7226D85747F36FECDFCA4E3AEB312A1A1.png"
+  }
+]

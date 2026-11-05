@@ -1,0 +1,18 @@
+{
+  "source": "快餐连锁大亨带扩-汉化 (2202544434).rar",
+  "sha256": "023c506860510869dc453c2ad2f0df1117d1c9ff91e5f5957cac497aa99ec09e",
+  "format": "ZIP",
+  "files": 197,
+  "image_files_including_workshop_thumbnail": 183,
+  "model_files": 11,
+  "pdf_files": 2,
+  "save_files": 1,
+  "top_level_objects": 187,
+  "recursive_objects_including_states": 786,
+  "city_tiles": 20,
+  "unique_card_face_sheets": 6,
+  "unique_asset_urls": 196,
+  "cached_asset_urls": 195,
+  "lua_objects": 25,
+  "distinct_object_scripts": 3
+}

@@ -1,0 +1,13 @@
+*
+!boardgame/
+!boardgame/**
+boardgame/**/__pycache__/
+
+!doc/
+!doc/FCM_IMPLEMENTATION.md
+!pyproject.toml
+!uv.lock
+!.python-version
+!README.md
+!doc/FCM_RULES.md
+!doc/FCM_EXPANSIONS.md
