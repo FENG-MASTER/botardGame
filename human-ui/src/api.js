@@ -33,13 +33,16 @@ export class API {
     if (!response.ok) throw new APIError(response.status, value);
     return value;
   }
-  register(name, key = "") {
+  register(name, inviteCode, key = "") {
     return this.request("/v1/identities", {
       method: "POST",
-      body: { name, kind: "human" },
+      body: { name, kind: "human", invite_code: inviteCode },
       headers: key ? { "X-Registration-Key": key } : {},
     });
   }
+  invitations() { return this.request("/v1/invitations"); }
+  createInvitation() { return this.request("/v1/invitations", {method:"POST"}); }
+  revokeInvitation(id) { return this.request(`/v1/invitations/${id}/revoke`, {method:"POST"}); }
   me() {
     return this.request("/v1/me");
   }

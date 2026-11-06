@@ -7,7 +7,7 @@ COPY pyproject.toml uv.lock .python-version README.md /app/
 RUN uv sync --locked --no-dev
 COPY boardgame /app/boardgame
 COPY doc/FCM_IMPLEMENTATION.md doc/FCM_RULES.md doc/FCM_EXPANSIONS.md /app/doc/
-RUN useradd --uid 10001 --create-home boardgame && mkdir /data && chown boardgame:boardgame /data
+RUN chmod -R a+rX /app && useradd --uid 10001 --create-home boardgame && mkdir /data && chown boardgame:boardgame /data
 USER boardgame
 VOLUME /data
 EXPOSE 8000

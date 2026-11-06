@@ -1,6 +1,7 @@
 import http from "node:http";
 import https from "node:https";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -141,11 +142,13 @@ if (
 ) {
   const host = process.env.HOST || "127.0.0.1";
   const port = Number(process.env.PORT || 5173);
-  const server = http.createServer(
-    createHandler(process.env.GAME_API_URL || "http://127.0.0.1:8000"),
-  );
+  const handler = createHandler(process.env.GAME_API_URL || "http://127.0.0.1:8000");
+  const tlsCert = process.env.TLS_CERT_FILE;
+  const tlsKey = process.env.TLS_KEY_FILE;
+  if (Boolean(tlsCert) !== Boolean(tlsKey)) throw new Error("Both TLS_CERT_FILE and TLS_KEY_FILE are required");
+  const server = tlsCert ? https.createServer({cert: readFileSync(tlsCert), key: readFileSync(tlsKey), minVersion: "TLSv1.2"}, handler) : http.createServer(handler);
   server.requestTimeout = 35000;
   server.listen(port, host, () =>
-    console.log(`围桌 UI: http://${host}:${port}`),
+    console.log(`围桌 UI: ${tlsCert ? "https" : "http"}://${host}:${port}`),
   );
 }

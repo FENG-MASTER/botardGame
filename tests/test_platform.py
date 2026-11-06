@@ -1,3 +1,4 @@
+from invitation_fixture import invite
 import json
 import tempfile
 import threading
@@ -203,16 +204,16 @@ class HTTPTests(unittest.TestCase):
         with self.assertRaises(APIError) as error:
             self.client.request("GET", "/v1/rooms")
         self.assertEqual(error.exception.status, 401)
-        identity = self.client.register("Human", "human")
+        identity = self.client.register("Human", "human", invite(self.server.platform))
         self.assertEqual(self.client.request("GET", "/v1/me")["id"], identity["id"])
 
     def test_agents_finish_over_http(self):
-        obs = run(self.url)
+        obs = run(self.url, [invite(self.server.platform), invite(self.server.platform)])
         self.assertEqual(obs["status"], "finished")
         self.assertTrue(self.server.platform.replay(obs["id"])["valid"])
 
     def test_malformed_action(self):
-        self.client.register("test")
+        self.client.register("test", invite_code=invite(self.server.platform))
         with self.assertRaises(APIError) as error:
             self.client.request("POST", "/v1/rooms", dict(game="fcm", capacity=True))
         self.assertEqual(error.exception.status, 422)

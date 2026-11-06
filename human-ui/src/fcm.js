@@ -357,12 +357,12 @@ export function actionPanel(ctx) {
         el("span", {}, "冰柜已用容量"),
       ),
     );
-    for (const [product, label] of Object.entries(products))
+    for (const product of Object.keys(p.inventory).filter(k => k !== "coffee"))
       controls.append(
         el(
           "div",
           { class: "stock-row" },
-          el("span", {}, `${productIcons[product]} ${label}`),
+          el("span", {}, `${productIcons[product]} ${products[product]}`),
           el("span", { class: "muted small" }, `现有 ${p.inventory[product]}`),
           input(
             d.keep[product] || 0,
@@ -375,7 +375,7 @@ export function actionPanel(ctx) {
               min: 0,
               max: p.inventory[product],
               disabled: !o.freezer_capacity || product === "coffee",
-              "aria-label": `保留${label}`,
+              "aria-label": `保留${products[product]}`,
             },
           ),
         ),

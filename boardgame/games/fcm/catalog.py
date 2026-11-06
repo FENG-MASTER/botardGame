@@ -206,3 +206,10 @@ def campaigns(players, modules=()):
     if 'rural_marketeers' in modules:
         result.update({str(i):dict(kind='giant_billboard',width=1,height=1) for i in range(21,25)})
     return result
+
+
+# Display metadata only; stable action IDs remain English.
+from .employee_names import EMPLOYEE_NAMES_ZH
+
+for _kind, _card in CARDS.items():
+    _card["name_zh"] = EMPLOYEE_NAMES_ZH[_kind]

@@ -68,13 +68,15 @@ def specification():
         "/health": {"get": op("Liveness", public=True)},
         "/v1/identities": {
             "post": op(
-                "Register a human or agent (identical privileges)",
-                obj({"name": STRING, "kind": enum("human", "agent")}, ["name", "kind"]),
+                "Register with a mandatory single-use user-issued invite_code (not room join_code)",
+                obj({"name": STRING, "kind": enum("human", "agent"), "invite_code": STRING}, ["name", "kind", "invite_code"]),
                 public=True,
                 created=True,
             )
         },
-        "/v1/me": {"get": op("Current identity")},
+        "/v1/me": {"get": op("Current identity; authenticated access counts one login day in Asia/Shanghai")},
+        "/v1/invitations": {"get": op("Your invitation audit and 3 distinct login-day eligibility"), "post": op("Generate a single-use invite valid 7 days; 3 login days required", created=True)},
+        "/v1/invitations/{invitation_id}/revoke": {"post": op("Revoke your unused invitation"), "parameters": [{"name":"invitation_id","in":"path","required":True,"schema":STRING}]},
         "/v1/games": {
             "get": op("Discover games and machine-readable rules metadata", public=True)
         },

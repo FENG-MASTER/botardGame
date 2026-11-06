@@ -11,3 +11,5 @@ __pycache__/
 .codex/
 *.bundle
 /doc/fcm/*.rar
+/deploy/artifacts/
+/deploy/certs/*.key

@@ -10,6 +10,7 @@ from . import tiles as tile_data
 from . import expansion_map as exmap
 from . import milestones as ms
 from . import coffee
+from . import scope
 
 
 class FCM:
@@ -18,6 +19,7 @@ class FCM:
 
     def descriptor(self):
         return dict(
+            scope="platform_catalog",
             id=self.id,
             name="Food Chain Magnate",
             version=self.version,
@@ -45,6 +47,39 @@ class FCM:
             milestone_sets=dict(base=MILESTONES, new=ms.NEW, modules=ms.MODULE),
             modules=descriptors(),
         )
+
+    def room_descriptor(self, config):
+        return dict(id=self.id, name="Food Chain Magnate", version=self.version, **scope.catalog(config))
+
+    def project_observation(self, view):
+        return scope.observation(view)
+
+    def public_event(self, event, config):
+        return scope.event(event, config.get("modules", []))
+
+    def validate_public_setup(self, state):
+        modules = state["modules"]
+        require("lobbyists" in modules or all(cell != "park" for row in state["board"]["cells"] for cell in row),
+                "Scenario parks require lobbyists", "invalid_parameters")
+        require("new_districts" in modules or not any(h.get("apartment") for h in state["board"]["houses"]),
+                "Scenario apartments require new_districts", "invalid_parameters")
+        for tile in state["board"].get("tiles", []):
+            source = tile_data.BY_ID.get(tile.get("id"))
+            if source:
+                module = source["module"]
+                require(module == "base" or module == "new_districts" and "new_districts" in modules
+                        or module == "parks" and {"lobbyists", "new_districts"} <= set(modules),
+                        "Scenario tile belongs to a disabled module", "invalid_parameters")
+        for campaign in state["campaign_tiles"].values():
+            module = {"guide": "gourmet_critics", "giant_billboard": "rural_marketeers"}.get(campaign["kind"])
+            require(module is None or module in modules, "Scenario campaign belongs to a disabled module", "invalid_parameters")
+
+    def validate_public_action(self, state, action):
+        from .actions import SCHEMAS
+        from boardgame.schema import validate
+        require(isinstance(action.get("type"), str) and action["type"] in SCHEMAS,
+                "Unknown action type", "invalid_parameters")
+        validate(action, scope.action_schema(action["type"], state))
 
     def create(self, players, config, seed):
         require(2 <= len(players) <= 6, "FCM needs 2–6 players")
@@ -143,7 +178,7 @@ class FCM:
         )
 
     def emit(self, s, kind, **data):
-        s["log"].append(dict(type=kind, **data))
+        s.setdefault("log", []).append(dict(type=kind, **{"round": s["round"], "phase": s["phase"], **data}))
 
     def grant(self, s, pid, m):
         p = s["players"][pid]
@@ -243,7 +278,7 @@ class FCM:
                 if p != pid:
                     company["active"] = []
                     company["structure"] = {}
-        return view
+        return self.project_observation(view)
 
     def apply(self, s, pid, a):
         s["log"] = []
@@ -755,7 +790,7 @@ class FCM:
             else:require(not item.get('mailbox'), 'No new restaurant mailbox bonus')
         if any(e['kind']=='discount_manager' for e in self.active(p)):
             self.grant(s,pid,'new_first_discount_manager_used')
-        self.emit(s, "work_completed", player=pid)
+        self.emit(s, "work_completed", player=pid, plan={k: deepcopy(a[k]) for k in ("hire", "train", "market", "produce", "develop", "lobby", "restaurants") if a.get(k)})
 
     def market(self, s, pid, e, c, a, bonus=False):
         p = s["players"][pid]
@@ -1352,6 +1387,7 @@ class FCM:
         s["ceo_slots"] = s["next_ceo_slots"]
         s["pending"] = {}
         s["phase"] = "restructure"
+        self.emit(s, "round_started")
 
     def actions(self, s, pid):
         from .actions import available

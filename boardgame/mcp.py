@@ -27,9 +27,21 @@ GUIDE = """You are a player on a shared human/agent boardgame platform.
    enabled_modules and room_rules_text for this exact room. Expansion rules
    override base rules where stated; never apply disabled modules.
 3. Call observe_game then get_available_actions. These are your authorized views.
-4. If can_act is false, call get_events(after=last_cursor, wait=25), then observe
-   again. Do not submit actions on behalf of other players.
-5. Read the returned action JSON Schemas, current phase, employees and options.
+   For FCM marketing, read the marketing API coordinate conventions in rules_text
+   and field descriptions in the action schema: ground position is the rotated
+   footprint's top-left global cell, while airplane side is the entry edge and
+   offset is the global starting row/column. Validate the complete work plan.
+4. If can_act is false and reason is not finished, execute the returned next_call:
+   get_events(room_id=room_id, after=the actions response version, wait=25).
+   This blocks until events arrive or 25 seconds elapse; 25 is NOT a polling
+   interval. Do not sleep, create a scheduled task, or repeatedly observe_game.
+   Empty events mean timeout, NOT game over: immediately call get_events again
+   with after=the returned cursor and wait=25. With events, observe_game and
+   get_available_actions again. Do not act for other players. In a full lobby,
+   the owner must start_game before waiting for play to begin.
+5. Use the room catalog, not the platform-wide list_games catalog. Disabled
+   expansion fields are absent, not zero. Omit absent fields (even empty arrays).
+   Read the returned action JSON Schemas, current phase, employees and options.
    Construct a complete action; optionally call validate_action first. Validation
    does not commit or expose simulated hidden outcomes.
 6. For submit_action/start_game, supply expected_version and a fresh unique
@@ -43,6 +55,12 @@ GUIDE = """You are a player on a shared human/agent boardgame platform.
 Tools return isError=true for game/permission/version errors, with a machine-readable
 error.code. Human and agent kinds have identical rules and information rights.
 Bearer credentials belong in the client transport configuration, never tool arguments.
+Registration requires a single-use user-issued invite_code, NOT a room join_code.
+Use get_invitations for your login-day eligibility and invitation audit. After successful
+login on 3 distinct Asia/Shanghai calendar days, create_invitation can invite a new
+human or agent. Codes expire after 7 days; returned plaintext is shown once.
+Self-signed HTTPS deployments require trusting the provided server certificate in
+client TLS configuration; never disable certificate verification globally.
 """
 
 ROOM = {"room_id": STRING}
@@ -72,13 +90,16 @@ def tool(
 
 TOOLS = [
     tool("get_identity", "Get the identity bound to this connection's Bearer token."),
+    tool("get_invitations", "Read your registration invitation history and eligibility. Successful authenticated access on 3 distinct Asia/Shanghai calendar days is required; repeated requests on one day count once."),
+    tool("create_invitation", "Generate a single-use registration invite, valid 7 days. Requires 3 distinct login days. Returned code is shown once; share only this code, never your Bearer token. This is NOT a room join_code.", readonly=False, idempotent=False),
+    tool("revoke_invitation", "Revoke your unused registration invitation.", {"invitation_id": STRING}, ["invitation_id"], readonly=False),
     tool(
         "list_games",
-        "Discover supported games, versions, limitations and employee capabilities.",
+        "Discover the platform catalog (all supported modules, not room availability). After joining, use get_game_rules with room_id and the room catalog for applicable capabilities.",
     ),
     tool(
         "get_game_rules",
-        "Read base and expansion rules BEFORE playing. With room_id, read room_rules_text for base rules plus only this room's enabled expansions. Also returns enabled_modules and enabled_module_rules; module availability is explicit.",
+        "Read base and expansion rules BEFORE playing. With room_id, read room_rules_text for base rules plus only this room's enabled expansions. With room_id all catalog fields and rules are scoped to that room. Without room_id this returns the full platform reference, not a playable-room contract.",
         {"game_id": STRING, "room_id": STRING},
         ["game_id"],
     ),
@@ -118,7 +139,7 @@ TOOLS = [
     ),
     tool(
         "get_available_actions",
-        "Discover current action JSON Schemas, legal options and can_act; use validate_action for composite plans.",
+        "Discover action Schemas and can_act. When can_act=false, follow next_call to wait for events instead of sleeping or scheduling polls. reason=finished means stop. Use validate_action for composite plans.",
         ROOM,
         ["room_id"],
     ),
@@ -137,7 +158,7 @@ TOOLS = [
     ),
     tool(
         "get_events",
-        "Read redacted events after a cursor. wait optionally long-polls up to 25 seconds; save the returned cursor.",
+        "WAIT HERE when it is not your turn: pass room_id, after=last cursor (or latest actions response version), wait=25. Returns as soon as events arrive, or after at most 25 seconds; this is not a 25-second polling interval. Omitted wait defaults to 0 and returns immediately. Empty events mean timeout: immediately repeat with returned cursor and wait=25, without sleep. With events, observe_game and get_available_actions again. Does not create a background subscription or wake a stopped agent.",
         {
             **ROOM,
             "after": VERSION,
@@ -189,22 +210,31 @@ def rules(platform, game_id, room=None):
             result["enabled_module_rules"] = {
                 key: result["module_rules"][key] for key in result["enabled_modules"]
             }
-            shared_rules = expansion_text.split("\n## new_districts —", 1)[0]
-            agent_rules = expansion_text.split("\n## 对 agent 的操作约定", 1)[1].split("\n## ", 1)[0]
+            modules = set(result["enabled_modules"])
+            shared_rules = []
+            if modules & {"coffee", "kimchi", "sushi", "noodles"}:
+                shared_rules.append("本局食品／饮料扩展合计额外增加一张奢侈品经理，不按模块数量叠加。")
+            if modules & {"kimchi", "sushi", "noodles"}:
+                meals = (["足量寿司"] if "sushi" in modules else []) + ["完整原订单"] + (["足量面条"] if "noodles" in modules else [])
+                preference = (["泡菜+" + meal for meal in meals] if "kimchi" in modules else []) + meals
+                shared_rules.append("有花园时的套餐优先级：" + "、".join(preference) + "。同档再按价格加距离、服务能力和顺位决定。" + ("无花园时不适用寿司选项。" if "sushi" in modules else ""))
             result["room_rules_text"] = "\n\n".join([
                 "# 本局适用规则\n\n启用扩展："
                 + (", ".join(result["enabled_modules"]) or "无（基础版）")
                 + "。下列扩展规则在明确修改基础规则之处优先生效；未列出的模块不适用。",
                 base_rules,
-                shared_rules,
+                *shared_rules,
                 *(entry["rules_text"] for entry in result["enabled_module_rules"].values()),
-                "## 对 agent 的操作约定" + agent_rules,
+                "## 对 agent 的操作约定\n仅使用本局 catalog 和 get_available_actions 返回的字段、员工及选项；省略不存在的字段，不发送未启用扩展的空数组或零库存。",
             ])
+            result["game"] = platform.registry.get(game_id).room_descriptor(room["config"])
+            result["module_rules"] = result["enabled_module_rules"]
+            result["rules_text"] = result["room_rules_text"]
+        result["scope"] = "room" if room is not None else "platform_catalog"
         result["rules_format"] = "text/markdown"
         result["rules_language"] = "zh-CN"
-        result["implementation_notes"] = (docs / "FCM_IMPLEMENTATION.md").read_text(
-            encoding="utf-8"
-        )
+        if room is None:
+            result["implementation_notes"] = (docs / "FCM_IMPLEMENTATION.md").read_text(encoding="utf-8")
     return result
 
 
@@ -215,6 +245,12 @@ class MCP:
     def call_tool(self, identity, name, a):
         p = self.platform
         pid = identity["id"]
+        if name == "get_invitations":
+            return p.invitations(pid)
+        if name == "create_invitation":
+            return p.create_invitation(pid)
+        if name == "revoke_invitation":
+            return p.revoke_invitation(pid, a["invitation_id"])
         if name == "get_identity":
             return identity
         if name == "list_games":
@@ -235,7 +271,10 @@ class MCP:
         if name == "observe_game":
             return p.get(pid, a["room_id"])
         if name == "get_available_actions":
-            return p.actions(pid, a["room_id"])
+            result = p.actions(pid, a["room_id"])
+            if not result["can_act"] and result.get("reason") != "finished":
+                result["next_call"] = self.wait_call(a["room_id"], result["version"])
+            return result
         if name in ("start_game", "submit_action", "validate_action"):
             start = name == "start_game"
             return p.mutate(
@@ -254,9 +293,21 @@ class MCP:
                     pid, a["room_id"], a.get("after", 0), a.get("limit", 100)
                 )
                 if result["events"] or time.monotonic() >= deadline:
+                    result["next_call"] = (
+                        {"name": "observe_game", "arguments": {"room_id": a["room_id"]}}
+                        if result["events"]
+                        else self.wait_call(a["room_id"], result["cursor"])
+                    )
                     return result
                 time.sleep(0.25)
         raise AssertionError("Unregistered tool")
+
+    @staticmethod
+    def wait_call(room_id, cursor):
+        return {
+            "name": "get_events",
+            "arguments": {"room_id": room_id, "after": cursor, "wait": 25},
+        }
 
     def resources(self):
         return [

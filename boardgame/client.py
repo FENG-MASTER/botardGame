@@ -39,8 +39,8 @@ class Client:
                 payload = json.load(e)
             raise APIError(e.code, payload) from e
 
-    def register(self, name, kind="agent"):
-        identity = self.request("POST", "/v1/identities", dict(name=name, kind=kind))
+    def register(self, name, kind="agent", invite_code=None):
+        identity = self.request("POST", "/v1/identities", dict(name=name, kind=kind, invite_code=invite_code))
         self.token = identity["token"]
         return identity
 

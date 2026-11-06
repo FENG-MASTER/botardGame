@@ -144,7 +144,7 @@ export function buildAction(phase, draft) {
   if (phase === "cleanup") return { type: "cleanup", keep: draft.keep };
   if (phase === "work") {
     const a = { type: "work" };
-    for (const section of Object.keys(draft.work))
+    for (const section of Object.keys(draft.work).filter(k => draft.work[k].length))
       a[section] = draft.work[section].map((row) => {
         const r = structuredClone(row);
         if (section === "train") {

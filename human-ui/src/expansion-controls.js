@@ -329,7 +329,7 @@ export function expansionWorkFields(ctx, tab, r, e) {
     ) {
       out.append(
         toggle(
-          "首次活动经理：额外放置同类广告",
+          "首次广告经理：额外放置同类广告",
           r,
           "second_campaign",
           { campaign_id: "", position: [0, 0], rotate: false },

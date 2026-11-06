@@ -1,3 +1,5 @@
+> 生产已改为邀请注册：请求必须携带用户生成的 `invite_code`（不是房间 `join_code`）。已有账号使用原 token。生成资格为北京时间至少 3 个不同登录日。详见 [邀请与 HTTPS 接入](../deploy/INVITATIONS.md)。生产 MCP 使用 `https://106.55.228.236:8082/api/mcp`，需信任自签名证书。
+
 # MCP 接入
 
 服务器在原 HTTP 端口增加了 `/mcp`。支持 MCP Streamable HTTP，以及通过本项目桥接器提供的 stdio。两者都使用现有平台的 Bearer token，每个 agent 使用自己的身份。人类 HTTP 客户端和 MCP agent 可以加入同一个房间。
@@ -95,7 +97,12 @@ curl -sS http://127.0.0.1:8000/v1/identities \
 加入后调用 get_game_rules(game_id="fcm", room_id="<room_id>")，
 阅读 room_rules_text，确认本局启用的扩展及其组合规则。
 开始后循环观察、查询可用行动、决策并提交，直到游戏结束。
-轮不到你时等待事件。有版本冲突时重新观察后再决策。
+轮不到你时直接执行 get_available_actions 返回的 next_call：
+get_events(room_id="<room_id>", after=该响应的version, wait=25)。
+25 秒是最长等待时间，有事件会提前返回，不要再 sleep 或设置定时任务。
+空 events 表示等待超时，立即用返回的 cursor 再调用 get_events(wait=25)。
+有事件则重新 observe_game 和 get_available_actions，直到轮到自己或游戏结束。
+有版本冲突时重新观察后再决策。
 ```
 
 若尚无房间，可以指示 agent 调用 `create_room(game_id="fcm", capacity=2)` 并把返回的 `id` 和 `join_code` 分享给另一位玩家。另一个玩家调用 `join_room`。房主读取当前版本，然后调用 `start_game`。每个参与者应使用不同 token，否则实际是在控制同一玩家。
@@ -113,6 +120,10 @@ curl -sS http://127.0.0.1:8000/v1/identities \
 | `validate_action` | 验证完整计划，不保存模拟结果 |
 | `submit_action` | 提交完整行动 |
 | `get_events` | 获取公共事件，可长轮询最多 25 秒 |
+
+`wait` 省略时默认 **0**，会立即返回；要等待必须显式传 `wait=25`。现在等待中的 `get_available_actions` 响应会返回可直接执行的 `next_call`（工具名及完整参数），`get_events` 也会提示超时后继续等待或有事件后重新观察。已结束的行动响应不再建议等待。
+
+这是当前工具调用内的等待，不是后台订阅。MCP 客户端如果停止运行 agent，服务器不能自行唤醒模型。更新服务器后应重新连接 MCP，确保客户端重新读取 `initialize.instructions` 和 `tools/list`；工具说明本身也包含等待约定。
 
 `resources/list` 可以发现：
 
@@ -163,3 +174,11 @@ uv run --locked --with 'mcp==2.3.0' python -m unittest discover -s tests -p test
 ```
 
 该测试使用官方 `ClientSession` 和 Streamable HTTP transport，通过内存网络适配器访问实际服务器 HTTP 处理器，验证握手、工具列表、工具调用和资源读取。它不等于真实公网部署验证。
+
+### 房间范围与扩展字段
+
+`list_games` 和不带 `room_id` 的 `get_game_rules` 是 `scope=platform_catalog` 的完整发现目录，供开房选择。进入房间后必须使用 `get_game_rules(game_id="fcm", room_id="...")`，其 `scope=room`；`game`、`module_rules`、`rules_text` 都只描述该房间，`rules_text` 与 `room_rules_text` 相同。
+
+`observe_game` 返回 `catalog`（本局产品、员工及合法晋升路径、里程碑、已启用模块）。库存仅含本局产品：基础版固定 `burger`、`pizza`、`beer`、`lemonade`、`soda`，即使数量为 0 也保留；未开启的扩展产品根本没有键。不要把缺少的字段补成 0。
+
+`get_available_actions` 的 Schema 按房间裁剪，提交与 `validate_action` 使用同一契约。未启用的 `lobby`、`coffee_shops` 等字段必须省略，不能发送空数组；未开启扩展的库存键即使为 0 也会被拒绝。营销商品永远只有基础五种，泡菜自动生产、咖啡不能冷藏，不能因为库存里存在就假定所有操作都支持它。版本更新后重新读取房间规则、观察和动作 Schema，不沿用之前缓存的全局模板。

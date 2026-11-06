@@ -22,8 +22,20 @@ test("preview renders without a server and work forms produce a human-authored p
   await import("../src/app.js");
   await until(() => document.querySelector(".city-board"), "map");
   assert.match(document.body.textContent, /演示棋盘/);
+  for (const strip of document.querySelectorAll('.inventory-strip')) {
+    assert.equal(strip.querySelectorAll('.inventory-item').length, 5);
+    assert.doesNotMatch(strip.textContent, /寿司|面条|泡菜|咖啡/);
+  }
+  assert.deepEqual(buildAction('work', freshDraft(preview.room.state)), {type:'work'});
   assert.equal(document.querySelectorAll(".map-hit").length, 225);
-  assert.equal(document.querySelectorAll(".employee-card").length, 6);
+  assert.equal(document.querySelectorAll(".my-company-group .employee-card").length, 6);
+  assert.equal(document.querySelectorAll(".milestones-list li").length, preview.room.state.milestone_pool.length);
+  assert.match(document.querySelector(".milestones-panel").textContent, /本局里程碑/);
+  const main = document.querySelector(".game-main");
+  assert.deepEqual([...main.children].map(node=>node.classList[0]), ["map-panel","turn-order-panel","my-company-group","round-log-panel","players-panel","milestones-panel","event-panel"]);
+  assert.equal(document.querySelectorAll(".peer-companies .employee-card").length, 4);
+  assert.match(document.querySelector(".peer-companies").textContent, /Atlas的餐饮连锁/);
+
   clickText("+ 添加");
   assert.equal(document.querySelectorAll(".plan-card").length, 1);
   inputLabel("招聘职位", "kitchen_trainee");
@@ -31,7 +43,7 @@ test("preview renders without a server and work forms produce a human-authored p
   clickText("+ 添加");
   inputLabel("培训目标", "hire:0");
   inputLabel("第 1 级晋升", "burger_cook");
-  assert.match(document.querySelector(".plan-card").textContent, /汉堡厨师/);
+  assert.match(document.querySelector(".plan-card").textContent, /汉堡小厨/);
   clickText("检查计划");
   assert.match(document.querySelector("#toast").textContent, /演示模式/);
   globalThis.setInterval = originalInterval;

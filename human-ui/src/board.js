@@ -1,5 +1,6 @@
 import { el, button, badge } from "./dom.js";
 import { colors, products, productIcons, campaignNames } from "./labels.js";
+import { marketingPreviews } from "./marketing-preview.js";
 const NS = "http://www.w3.org/2000/svg";
 function svg(tag, props = {}, ...kids) {
   const n = document.createElementNS(NS, tag);
@@ -401,7 +402,7 @@ export function renderBoard(
     : state.phase === "setup_restaurants"
       ? draft?.position
       : null;
-  if (position) {
+  if (position && pick?.section !== "market") {
     const size =
       state.phase === "setup_restaurants" || pick?.section === "restaurants"
         ? 2
@@ -416,6 +417,62 @@ export function renderBoard(
         { rx: 4, stroke: "#df744d", "stroke-width": 3 },
       ),
     );
+  }
+  const marketing = marketingPreviews(state, draft);
+  for (const c of marketing) {
+    const group = svg("g", {
+      class: "marketing-preview",
+      "data-plan-index": c.index,
+      "pointer-events": "none",
+    });
+    const outline = {
+      stroke: "#b34f25",
+      "stroke-width": 2,
+      "stroke-dasharray": "6 3",
+    };
+    for (const house of c.houses)
+      for (const [x, y] of house.cells)
+        group.append(
+          rect(x * unit + 1, y * unit + 1, unit - 2, unit - 2, "#eab84244", {
+            stroke: "#c18c20",
+            class: "marketing-target",
+          }),
+        );
+    if (c.cells.length) {
+      const [x, y] = c.position;
+      group.append(
+        rect(x * unit, y * unit, c.width * unit, c.height * unit, "#ef996866", {
+          ...outline,
+          class: "marketing-footprint",
+        }),
+        text(
+          (x + c.width / 2) * unit,
+          (y + c.height / 2) * unit,
+          `待放 #${c.campaign_id} ${productIcons[c.product] || ""}`,
+          { "font-size": 11, fill: "#743017" },
+        ),
+      );
+    } else if (c.kind === "airplane") {
+      group.append(
+        rect(
+          c.horizontal ? 0 : c.offset * unit,
+          c.horizontal ? c.offset * unit : 0,
+          (c.horizontal ? b.width : c.span) * unit,
+          (c.horizontal ? c.span : b.height) * unit,
+          "#b18bd133",
+          { ...outline, class: "marketing-flight-strip" },
+        ),
+      );
+      group.append(
+        text(
+          (c.horizontal ? c.line : c.offset + c.span / 2) * unit,
+          (c.horizontal ? c.offset + c.span / 2 : c.line) * unit,
+          `${{ left: "→", right: "←", top: "↓", bottom: "↑" }[c.side]} #${c.campaign_id}`,
+          { "font-size": 16, fill: "#743017" },
+        ),
+      );
+    }
+    scene.append(group);
   }
   if (state.phase === "setup_restaurants" && draft?.position) {
     const [x, y] = draft.position;
@@ -514,6 +571,24 @@ export function renderBoard(
         }),
       ),
     ),
+    marketing.length > 0 &&
+      el(
+        "div",
+        { class: "marketing-preview-note", "aria-live": "polite" },
+        el("strong", {}, "营销放置预览（尚未提交）"),
+        el(
+          "p",
+          {},
+          "虚线表示拟放置板块或飞机飞越带，黄色标记当前地图可触达的房屋。位置是否合法请使用“检查计划”确认。",
+        ),
+        ...marketing.map((c) =>
+          el(
+            "div",
+            {},
+            `计划 ${c.index + 1} · #${c.campaign_id} ${campaignNames[c.kind]} · ${products[c.product] || "待选产品"} · ${c.cells.length ? `左上角 (${c.position.join(", ")}) · ${c.width}×${c.height} · ` : ""}${c.kind === "giant_billboard" ? `乡村区域 · ${{ left: "左", right: "右", top: "上", bottom: "下" }[c.rural_side] || "待选"}侧` : `触达房屋：${c.houses.map((h) => h.id).join("、") || "暂无"}`}`,
+          ),
+        ),
+      ),
     pick &&
       el(
         "div",

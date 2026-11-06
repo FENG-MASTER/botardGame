@@ -2558,3 +2558,139 @@ details summary:hover {
 .module-option.unavailable { opacity: .55; cursor: default; }
 .expansion-fields { display: grid; gap: 10px; }
 .rural-area { padding: 16px; margin: 12px; background: #eef0dd; border: 1px solid #a7b791; border-radius: 12px; overflow-wrap: anywhere; }
+
+.milestones-panel { padding: 22px; }
+.milestones-panel h2 { margin: 0; font-size: 18px; }
+.milestones-panel .section-title p { margin: 6px 0 0; }
+.milestones-note { margin: 0 0 14px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.milestones-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.milestone-item { border: 1px solid var(--line); border-radius: 9px; padding: 12px; min-width: 0; }
+.milestone-item.claimed { background: #faf4e5; border-color: #d8bb78; }
+.milestone-item.closed, .milestone-item.finished { background: #f4f3ed; }
+.milestone-item-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.milestone-owners { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; margin-top: 10px; }
+.milestone-owner { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; overflow-wrap: anywhere; max-width: 100%; }
+.milestone-owner.is-you { font-weight: 700; }
+.milestone-owner-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
+@media (max-width: 600px) { .milestones-list { grid-template-columns: 1fr; } .milestones-panel { padding: 16px; } }
+
+.marketing-preview-note { padding: 12px 18px; background: #fff4dd; color: #743f21; font-size: 12px; overflow-wrap: anywhere; }
+.marketing-preview-note p { margin: 5px 0; }
+
+.invitation-panel { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 12px; }
+.invitation-history { border-bottom: 1px solid var(--line); padding: 8px 0; overflow-wrap: anywhere; }
+.account-modal { max-height: 90vh; overflow-y: auto; }
+
+/* Reading order is shared by DOM and mobile; decisions stay with your company. */
+.game-main, .my-company-group { display: contents; }
+.game-layout .map-panel, .game-layout .turn-order-panel, .game-layout .company-panel,
+.game-layout .round-log-panel, .game-layout .players-panel, .game-layout .milestones-panel,
+.game-layout .event-panel { grid-column: 1; }
+.game-layout .action-panel { grid-column: 2; grid-row: 1 / span 8; }
+.turn-order-panel, .round-log-panel { padding: 22px; min-width: 0; }
+.turn-order-panel h2, .round-log-panel h2 { margin: 0; font-size: 18px; }
+.turn-order-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.turn-order-list li { flex: 1 1 140px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.turn-order-list li.is-acting { background: var(--green-light); border-color: var(--green); }
+.turn-order-list small, .round-action-list small { display: block; }
+.round-action-list { padding-left: 22px; margin: 12px 0 0; }
+.round-action-list li { padding: 7px 0; overflow-wrap: anywhere; }
+.peer-companies { display: flex; flex-direction: column; gap: 16px; }
+.players-panel > .section-title { margin-bottom: 12px; }
+.event-list { overflow-wrap: anywhere; }
+@media (max-width: 740px) {
+  .game-layout .map-panel { order: 1; }
+  .game-layout .turn-order-panel { order: 2; }
+  .my-company-group { display: flex; flex-direction: column; gap: 12px; order: 3; min-width: 0; width: 100%; }
+  .my-company-group .company-panel, .my-company-group .action-panel { order: 0; }
+  .game-layout .round-log-panel { order: 4; }
+  .game-layout .players-panel { order: 5; }
+  .game-layout .milestones-panel { order: 6; }
+  .game-layout .event-panel { order: 7; }
+  .turn-order-panel, .round-log-panel, .peer-companies .company-panel { padding: 16px; }
+  .players-panel { padding: 0; }
+  .turn-order-list li { flex-basis: 120px; }
+}
+
+@media (max-width: 740px) {
+  .game-layout { align-items: stretch; }
+  .inventory-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .inventory-item { min-width: 0; }
+}
+
+/* Compact company roster: name/status, ability, then ID/salary. */
+.company-panel .employee-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 7px;
+}
+.company-panel .employee-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+}
+.company-panel .employee-card-top { display: contents; }
+.company-panel .employee-icon { display: none; }
+.company-panel .employee-card > strong {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.company-panel .employee-card .badge {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 9px;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+.company-panel .employee-card > small {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-height: 0;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.company-panel .employee-bottom {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  gap: 6px;
+  margin: 0;
+  padding-top: 4px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.company-panel .employee-bottom > span { overflow-wrap: anywhere; min-width: 0; }
+.company-panel .staff-heading { margin: 15px 0 9px; }
+@media (max-width: 740px) {
+  .company-panel .employee-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Compact milestone cards, including all shared winners. */
+.milestones-panel { padding: 16px; }
+.milestones-list {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 7px;
+}
+.milestone-item { padding: 8px; border-radius: 7px; }
+.milestone-item-heading {
+  align-items: flex-start;
+  gap: 4px 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.milestone-item-heading strong { overflow-wrap: anywhere; }
+.milestone-item-heading .badge { font-size: 9px; padding: 2px 4px; }
+.milestone-owners { gap: 4px 6px; margin-top: 6px; line-height: 1.4; }
+.milestone-owner, .milestone-owners > .small { font-size: 11px; }
+.milestone-owner { flex-wrap: wrap; gap: 3px; }
+.milestone-owner-dot { width: 6px; height: 6px; }
+.milestones-note { margin-bottom: 10px; font-size: 11px; line-height: 1.5; }
+@media (max-width: 740px) {
+  .milestones-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

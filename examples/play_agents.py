@@ -40,9 +40,11 @@ def choose(identity, observation, options):
     raise RuntimeError(phase)
 
 
-def run(base):
+def run(base, invite_codes=None):
+    if not invite_codes or len(invite_codes) != 2:
+        raise ValueError("Two single-use registration invitation codes are required")
     clients = [Client(base), Client(base)]
-    identities = [c.register(f"Waitress agent {i + 1}") for i, c in enumerate(clients)]
+    identities = [c.register(f"Waitress agent {i + 1}", invite_code=invite_codes[i]) for i, c in enumerate(clients)]
     room = clients[0].request("POST", "/v1/rooms", dict(game="fcm", capacity=2, seed=7))
     rid = room["id"]
     clients[1].request(
@@ -82,4 +84,6 @@ def run(base):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:8000")
-    run(parser.parse_args().url)
+    parser.add_argument("--invite-codes", nargs=2, required=True)
+    args = parser.parse_args()
+    run(args.url, args.invite_codes)

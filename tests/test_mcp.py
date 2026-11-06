@@ -76,6 +76,8 @@ class MCPTests(unittest.TestCase):
 
     def test_expansion_rules_and_room_scoping(self):
         book = self.call("get_game_rules", {"game_id": "fcm"})
+        self.assertIn("营销 API 坐标约定", book["rules_text"])
+        self.assertIn("旋转后占地矩形的**左上角**", book["rules_text"])
         self.assertEqual(len(book["module_rules"]), 17)
         self.assertTrue(all(m["available"] for m in book["module_rules"].values()))
         self.assertIn("work.lobby", book["module_rules"]["lobbyists"]["rules_text"])
@@ -103,6 +105,30 @@ class MCPTests(unittest.TestCase):
         with self.assertRaises(GameError):
             MCP(self.p).call_tool(self.b, "get_game_rules", {"game_id": "fcm", "room_id": room["id"]})
 
+    def test_wait_guidance_preserves_cursor_across_join_and_timeout(self):
+        room = self.p.create_room(self.a["id"], "fcm", 2, {}, 1)
+        options = self.call("get_available_actions", {"room_id": room["id"]})
+        next_call = options["next_call"]
+        self.assertEqual(next_call, {
+            "name": "get_events",
+            "arguments": {"room_id": room["id"], "after": options["version"], "wait": 25},
+        })
+        # A join between observing and waiting must not be missed.
+        self.p.join(self.b["id"], room["id"], room["join_code"])
+        events = self.call(next_call["name"], next_call["arguments"])
+        self.assertTrue(events["events"])
+        self.assertEqual(events["next_call"]["name"], "observe_game")
+        timeout = self.call("get_events", {
+            "room_id": room["id"], "after": events["cursor"], "wait": 0,
+        })
+        self.assertEqual(timeout["events"], [])
+        self.assertEqual(timeout["next_call"]["arguments"]["after"], events["cursor"])
+        self.assertEqual(timeout["next_call"]["arguments"]["wait"], 25)
+        with patch.object(self.p, "actions", return_value={
+            "version": 7, "can_act": False, "reason": "finished", "actions": [],
+        }):
+            self.assertNotIn("next_call", self.call("get_available_actions", {"room_id": room["id"]}))
+
     def test_initialize_discovery_and_rules(self):
         result = self.rpc(
             "initialize",
@@ -120,7 +146,7 @@ class MCPTests(unittest.TestCase):
         )
         self.assertEqual((status, body), (202, None))
         tools = self.rpc("tools/list")["result"]["tools"]
-        self.assertEqual(len(tools), 12)
+        self.assertEqual(len(tools), 15)
         self.assertFalse(
             next(t for t in tools if t["name"] == "create_room")["annotations"][
                 "idempotentHint"
@@ -325,5 +351,5 @@ class MCPTests(unittest.TestCase):
         lines = [json.loads(line) for line in out.getvalue().splitlines()]
         self.assertEqual([v["id"] for v in lines], [1, 2])
         self.assertEqual(bridge.version, PROTOCOL_VERSION)
-        self.assertEqual(len(lines[1]["result"]["tools"]), 12)
+        self.assertEqual(len(lines[1]["result"]["tools"]), 15)
         self.assertNotIn(self.a["token"], out.getvalue())

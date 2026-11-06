@@ -507,7 +507,7 @@ export const preview = {
       next_ceo_slots: 3,
       introductory: false,
       pending: {},
-      closed_milestones: [],
+      closed_milestones: ["first_train", "first_waitress"],
       claimed: [],
       next_employee: 9,
       winner: null,
@@ -1272,3 +1272,5 @@ export const preview = {
       "Use employee ID or hire_index (zero-based index in this plan’s hire list).",
   },
 };
+
+preview.room.state.milestone_pool = [...preview.catalog.milestones];

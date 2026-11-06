@@ -1,3 +1,5 @@
+import { roundLogPanel, turnOrderPanel, eventText, eventEntries } from "./round-log.js";
+import { invitationPanel } from "./invitations.js";
 import { API, APIError, makeTransaction, definitive } from "./api.js";
 import {
   el,
@@ -27,6 +29,7 @@ import { renderBoard } from "./board.js";
 import { actionPanel } from "./fcm.js";
 import { preview } from "./preview.js";
 import { modulePicker, moduleProblem } from "./modules.js";
+import { milestonePanel } from "./milestones.js";
 
 const stored = JSON.parse(sessionStorage.getItem("table.identity") || "null");
 const api = new API(stored?.token || "");
@@ -51,6 +54,7 @@ const state = {
   name: "",
   token: "",
   registrationKey: "",
+  inviteCode: "",
   joinId: "",
   joinCode: "",
   capacity: 2,
@@ -117,6 +121,7 @@ async function authenticate() {
     if (state.authMode === "new") {
       const identity = await api.register(
         state.name.trim(),
+        state.inviteCode.trim(),
         state.registrationKey,
       );
       setIdentity(identity);
@@ -208,10 +213,16 @@ async function loadRoute() {
   }
 }
 async function fetchEvents(id, g = generation) {
-  const result = await api.events(id, state.cursor);
-  if (g !== generation) return;
-  state.cursor = result.cursor;
-  state.events = [...state.events, ...result.events].slice(-60);
+  let target;
+  do {
+    const result = await api.events(id, state.cursor);
+    if (g !== generation) return;
+    target ??= result.version;
+    const previous = state.cursor;
+    state.cursor = result.cursor;
+    state.events = [...state.events, ...result.events];
+    if (!result.events.length || state.cursor <= previous) break;
+  } while (state.cursor < target);
 }
 async function refresh() {
   if (syncRunning || state.busy || isPreview() || !state.identity) return;
@@ -547,6 +558,7 @@ function account() {
       ),
     ),
   );
+  dialog.append(invitationPanel(api, copy));
   document.body.append(dialog);
   dialog.addEventListener("close", () => dialog.remove());
   dialog.showModal();
@@ -715,10 +727,13 @@ function welcome() {
                     autocomplete: "nickname",
                   }),
                 ),
+                field("注册邀请码", input(state.inviteCode, (v) => (state.inviteCode = v), {
+                  required: true, maxLength: 200, autocomplete: "off", placeholder: "向已登录满 3 个自然日的玩家获取",
+                })),
                 el(
                   "details",
                   {},
-                  el("summary", {}, "服务器设置了注册口令？"),
+                  el("summary", {}, "额外的平台注册口令（如有）"),
                   field(
                     "注册口令",
                     input(
@@ -1020,7 +1035,7 @@ function roomPage() {
   const pid = isPreview() ? "preview-human" : state.identity.id;
   const p = s.players[pid];
   const fullCatalog = (
-    isPreview() ? preview.catalog : state.games.find((g) => g.id === room.game)
+    room.catalog || (isPreview() ? preview.catalog : state.games.find((g) => g.id === room.game))
   )?.employees;
   const catalog =
     fullCatalog &&
@@ -1154,27 +1169,30 @@ function roomPage() {
           },
           inspected: state.inspected,
         }),
-        companyPanel(s, pid, catalog),
-        tablePlayers(room, pid),
+        turnOrderPanel(room, pid),
+        el("div", {class:"my-company-group"}, companyPanel(s, pid, catalog), actionPanel(ctx)),
+        roundLogPanel(room, state.events),
+        tablePlayers(room, pid, catalog),
+        milestonePanel(room, pid, openRules),
         eventPanel(room),
       ),
-      actionPanel(ctx),
     ),
   );
 }
-function companyPanel(s, pid, cards) {
+function companyPanel(s, pid, cards, member = null) {
+  const concealed = Boolean(member) && s.phase === "restructure";
   const p = s.players[pid];
   return el(
     "section",
-    { class: "company-panel card" },
+    { class: "company-panel card", dataset: {player: pid} },
     el(
       "div",
       { class: "section-title" },
       el(
         "div",
         {},
-        el("p", { class: "eyebrow" }, "YOUR LITTLE EMPIRE"),
-        el("h2", {}, "我的餐饮连锁"),
+        el("p", { class: "eyebrow" }, member ? (member.kind === "agent" ? "AGENT" : "HUMAN") : "YOUR LITTLE EMPIRE"),
+        el("h2", {}, member ? `${member.name}的餐饮连锁` : "我的餐饮连锁"),
       ),
       el(
         "div",
@@ -1186,7 +1204,7 @@ function companyPanel(s, pid, cards) {
     el(
       "div",
       { class: "inventory-strip" },
-      Object.entries(products).map(([k, label]) =>
+      Object.keys(p.inventory).map((k) =>
         el(
           "div",
           { class: "inventory-item" },
@@ -1194,8 +1212,8 @@ function companyPanel(s, pid, cards) {
           el(
             "span",
             {},
-            el("strong", {}, p.inventory[k]),
-            el("small", {}, label),
+            el("strong", {}, p.inventory[k] ?? 0),
+            el("small", {}, products[k] || k),
           ),
         ),
       ),
@@ -1207,7 +1225,7 @@ function companyPanel(s, pid, cards) {
       el(
         "span",
         { class: "muted small" },
-        `${p.employees.length} 人 · ${p.active.length} 人工作中`,
+        `${p.employees.length} 人 · ${concealed ? "本轮工作安排尚未公开" : `${p.active.length} 人工作中`}`,
       ),
     ),
     el(
@@ -1216,7 +1234,7 @@ function companyPanel(s, pid, cards) {
       p.employees.map((e) =>
         el(
           "div",
-          { class: `employee-card ${p.active.includes(e.id) ? "active" : ""}` },
+          { class: `employee-card ${!concealed && p.active.includes(e.id) ? "active" : ""}` },
           el(
             "div",
             { class: "employee-card-top" },
@@ -1234,8 +1252,8 @@ function companyPanel(s, pid, cards) {
                       : "◇",
             ),
             badge(
-              e.busy ? "营销中" : p.active.includes(e.id) ? "工作中" : "在海滩",
-              e.busy ? "sand" : p.active.includes(e.id) ? "green" : "",
+              e.busy ? "营销中" : concealed ? "安排未公开" : p.active.includes(e.id) ? "工作中" : "在海滩",
+              e.busy ? "sand" : !concealed && p.active.includes(e.id) ? "green" : "",
             ),
           ),
           el("strong", {}, employees[e.kind] || e.kind),
@@ -1257,7 +1275,8 @@ function companyPanel(s, pid, cards) {
         ? p.milestones.map((m) => badge(`✦ ${milestones[m] || m}`, "sand"))
         : el("span", { class: "small muted" }, "下一项成就，等你达成。"),
     ),
-    el(
+    el("p", {class:"small muted"}, `储备卡：${s.reserves?.[pid] == null ? "保密" : money(s.reserves[pid])} · 餐厅 ${p.restaurants.length} 家${p.eliminated ? " · 已退出" : ""}`),
+    !member && el(
       "details",
       { class: "supply-details" },
       el("summary", {}, "查看公共员工库存与能力"),
@@ -1286,89 +1305,16 @@ function companyPanel(s, pid, cards) {
     ),
   );
 }
-function tablePlayers(room, pid) {
-  const s = room.state;
-  return el(
-    "section",
-    { class: "players-panel card" },
-    el(
-      "div",
-      { class: "section-title" },
-      el("h2", {}, "同桌玩家"),
-      badge(`${room.members.length} 人`),
-    ),
-    el(
-      "div",
-      { class: "player-grid" },
-      room.members.map((m, index) => {
-        const p = s.players[m.id];
-        return el(
-          "details",
-          { class: "player-summary" },
-          el(
-            "summary",
-            {},
-            el(
-              "div",
-              {
-                class: "avatar",
-                style: {
-                  background: colors[index] + "20",
-                  color: colors[index],
-                },
-              },
-              m.name.slice(0, 1),
-            ),
-            el(
-              "div",
-              {},
-              el("strong", {}, `${m.name}${m.id === pid ? " · 你" : ""}`),
-              el(
-                "small",
-                {},
-                `${m.kind === "agent" ? "Agent" : "人类"} · ${p.eliminated ? "已退出" : s.actors?.includes(m.id) ? "正在决策" : "在桌上"}`,
-              ),
-            ),
-            el("strong", {}, money(p.cash)),
-          ),
-          el(
-            "div",
-            { class: "player-detail" },
-            el(
-              "p",
-              {},
-              `库存：${Object.entries(p.inventory)
-                .map(([k, v]) => `${productIcons[k]} ${v}`)
-                .join("  ")}`,
-            ),
-            el(
-              "p",
-              {},
-              `员工：${p.employees.map((e) => `${employees[e.kind] || e.kind}${e.busy ? "（营销中）" : p.active.includes(e.id) ? "（工作）" : ""}`).join("、")}`,
-            ),
-            el(
-              "p",
-              {},
-              `里程碑：${p.milestones.map((m) => milestones[m] || m).join("、") || "暂无"}`,
-            ),
-            el(
-              "p",
-              {},
-              `储备卡：${s.reserves[m.id] === null || s.reserves[m.id] === undefined ? "保密" : money(s.reserves[m.id])}`,
-            ),
-          ),
-        );
-      }),
-    ),
+function tablePlayers(room, pid, catalog) {
+  const others = room.members.filter(m => m.id !== pid);
+  return el("section", {class:"players-panel", "aria-label":"同桌玩家详情"},
+    el("div", {class:"section-title"}, el("h2", {}, "同桌玩家详情"), badge(`${others.length} 人`)),
+    el("div", {class:"peer-companies"}, others.map(m => companyPanel(room.state, m.id, catalog, m)))
   );
 }
 function eventPanel(room) {
   const name = (id) => room.members.find((m) => m.id === id)?.name || "玩家";
-  const entries = state.events
-    .flatMap((batch) =>
-      batch.events.map((e) => ({ ...e, version: batch.version })),
-    )
-    .filter((e) => e.type !== "action_submitted");
+  const entries = eventEntries(room, state.events);
   return el(
     "details",
     { class: "event-panel card", open: false },
@@ -1383,7 +1329,7 @@ function eventPanel(room) {
           "div",
           { class: "event-list" },
           entries
-            .slice(-30)
+            .slice()
             .reverse()
             .map((e) =>
               el(
@@ -1400,25 +1346,6 @@ function eventPanel(room) {
           { class: "muted" },
           isPreview() ? "演示棋盘不产生真实记录。" : "新的故事从这里开始。",
         ),
-  );
-}
-function eventText(e, name) {
-  return (
-    {
-      game_started: "所有人已入座，游戏开始。",
-      player_joined: `${name(e.player)} 加入了游戏桌。`,
-      structures_revealed: "所有公司结构已公开。",
-      decision_automated: `${name(e.player)} 的${phases[e.phase] || e.phase}已自动完成：${{ no_available_employees: "没有可安排的员工", only_position: "只剩一个顺位", no_firing_choice: "没有裁员选择", empty_inventory: "没有剩余库存", no_freezer: "没有可用冰柜，按规则丢弃库存" }[e.reason] || e.reason}。`,
-      work_completed: `${name(e.player)} 完成了今日工作。`,
-      milestone: `${name(e.player)} 达成「${milestones[e.milestone] || e.milestone}」。`,
-      house_served: `房屋 ${e.house} 在 ${name(e.player)} 用餐，收入 ${money(e.income)}。`,
-      salaries_paid: `${name(e.player)} 支付了 ${money(e.amount)} 工资。`,
-      marketing_resolved: "营销活动已结算，居民需求已更新。",
-      bank_broken: `银行第 ${e.number} 次破产。`,
-      game_finished: `本局结束，${name(e.winner)} 获胜。`,
-      chain_bankrupt: `${name(e.player)} 的连锁破产退出。`,
-      structure_overflow: `${name(e.player)} 的组织超出容量，只剩 CEO 工作。`,
-    }[e.type] || e.type
   );
 }
 function waitingRoom(room) {

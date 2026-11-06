@@ -1,5 +1,6 @@
 from boardgame.schema import obj, arr, enum, STRING, INT, BOOL, POINT
 from .catalog import CARDS, PRODUCTS
+from .scope import action_schema
 from . import milestones as ms
 from .expansion_map import PIECES
 
@@ -7,7 +8,9 @@ POINT = dict(type="array", items=dict(type="integer", minimum=0, maximum=129), m
 TILE_POINT = dict(type="array", items=dict(type="integer", minimum=-1, maximum=26), minItems=2, maxItems=2)
 SHOP = obj({"position": POINT, "shop_id": STRING}, ["position"])
 OFFRAMP = obj({"tile": TILE_POINT, "side": enum("left","right","top","bottom")}, ["tile","side"])
-CAMPAIGN = obj({"campaign_id":STRING, "position":POINT, "rotate":BOOL}, ["campaign_id","position"])
+MARKET_POSITION = dict(POINT, description="Zero-based global cell [x,y]: x increases right, y down; board.cells[y][x]. Top-left of the rotated footprint, not its center, a house ID or a 5x5 tile coordinate.")
+MARKET_ROTATE = dict(BOOL, description="Default false. true swaps campaign_tiles[id].width and height; position stays the top-left. Boolean, not degrees. Only for billboard/mailbox/radio.")
+CAMPAIGN = obj({"campaign_id":STRING, "position":MARKET_POSITION, "rotate":MARKET_ROTATE}, ["campaign_id","position"])
 MAILBOX = obj({**CAMPAIGN["properties"], "product":enum("burger","pizza","beer","lemonade","soda")}, ["campaign_id","position","product"])
 
 
@@ -60,14 +63,14 @@ SCHEMAS = {
                 obj(
                     {
                         "employee": STRING,
-                        "campaign_id": STRING,
+                        "campaign_id": dict(STRING, description="Available ID from state.campaign_tiles, not a kind or house ID. Read kind/width/height there; omit fields not applicable to that kind."),
                         "product": enum(*PRODUCTS),
                         "duration": dict(type="integer", minimum=1, maximum=5),
-                        "position": POINT,
-                        "rotate": BOOL,
-                        "side": enum("left", "right", "top", "bottom"),
-                        "offset": INT,
-                        "edge_tile": TILE_POINT,
+                        "position": MARKET_POSITION,
+                        "rotate": MARKET_ROTATE,
+                        "side": dict(enum("left", "right", "top", "bottom"), description="Airplane entry edge: left flies right, right flies left, top flies down, bottom flies up. Required for airplane; not a rotation."),
+                        "offset": dict(INT, minimum=0, description="Airplane global starting ROW for left/right, COLUMN for top/bottom, in cells, zero-based. Span is campaign_tiles[id].width, covering offset <= coordinate < offset+width. Not relative to edge_tile."),
+                        "edge_tile": dict(TILE_POINT, description="Optional airplane anchor [tile_column,tile_row] in 5x5 tile units. side selects that tile edge; it must be exposed and free of highway. Omit for outer rectangular map edge. offset remains global cell coordinates."),
                         "rural_side": enum("left","right","top","bottom"),
                         "offramp": OFFRAMP,
                         "second_product": enum("burger","pizza","beer","lemonade","soda"),
@@ -148,13 +151,13 @@ def available(engine, s, pid):
     result = dict(
         can_act=True,
         actors=engine.actors(s),
-        actions=[dict(type=k, schema=SCHEMAS[k]) for k in names],
+        actions=[dict(type=k, schema=action_schema(k, s)) for k in names],
         semantics="Schemas describe candidate actions. Use validate-action to check a complete plan without mutation.",
     )
     if phase == "bonus":
         result["bonus"] = s["bonus"]
         result["choices"] = engine.bonus_options(s)
-    result["milestones"] = s["milestone_pool"]
+    result["milestones"] = [] if s["introductory"] else s["milestone_pool"]
     if phase == "order":
         result["available_positions"] = [
             i for i in range(len(engine.living(s))) if str(i) not in s["positions"]
@@ -179,7 +182,10 @@ def available(engine, s, pid):
             "lobby",
             "restaurants",
         ]
-        result["lobby_components"] = {k:dict(v,remaining=s["lobby_supply"].get(k,0)) for k,v in PIECES.items()}
+        if "lobbyists" in s["modules"]:
+            result["lobby_components"] = {k:dict(v,remaining=s["lobby_supply"].get(k,0)) for k,v in PIECES.items()}
+        else:
+            result["plan_order"].remove("lobby")
         result["training_reference"] = (
             "Use employee ID or hire_index (zero-based index in this plan’s hire list)."
         )

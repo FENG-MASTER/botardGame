@@ -1,3 +1,4 @@
+from invitation_fixture import invite
 """Exercise real HTTP parsing and the unmodified SDK without opening a socket."""
 
 import io
@@ -71,7 +72,7 @@ class TransportTests(unittest.TestCase):
         return io.BytesIO(response)
 
     def test_agents_complete_via_real_http_parser_and_client(self):
-        result = run("http://localhost")
+        result = run("http://localhost", [invite(self.server.platform), invite(self.server.platform)])
         self.assertEqual(result["status"], "finished")
         self.assertTrue(self.server.platform.replay(result["id"])["valid"])
 
@@ -82,7 +83,7 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(
             self.client.request("GET", "/openapi.json")["openapi"], "3.1.0"
         )
-        me = self.client.register("Human", "human")
+        me = self.client.register("Human", "human", invite(self.server.platform))
         self.assertEqual(self.client.request("GET", "/v1/me")["id"], me["id"])
         room = self.client.request("POST", "/v1/rooms", dict(game="fcm", capacity=2))
         self.assertEqual(self.client.observe(room["id"])["status"], "lobby")
@@ -110,9 +111,9 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(error.exception.status, 403)
 
     def test_sse_resume_and_secret_redaction(self):
-        a = self.client.register("a")
+        a = self.client.register("a", invite_code=invite(self.server.platform))
         other = Client("http://localhost")
-        other.register("b")
+        other.register("b", invite_code=invite(self.server.platform))
         room = self.client.request("POST", "/v1/rooms", dict(game="fcm", capacity=2))
         rid = room["id"]
         other.request(
@@ -129,7 +130,7 @@ class TransportTests(unittest.TestCase):
         self.assertNotIn(room["join_code"].encode(), response[2])
 
     def test_invalid_game_type_is_client_error(self):
-        self.client.register("a")
+        self.client.register("a", invite_code=invite(self.server.platform))
         with self.assertRaises(APIError) as error:
             self.client.request("POST", "/v1/rooms", dict(game=[], capacity=2))
         self.assertEqual(error.exception.status, 404)

@@ -202,12 +202,21 @@ class Handler(BaseHTTPRequestHandler):
                     403,
                 )
             b = self.body()
-            return self.send_json(201, platform.register(b.get("name"), b.get("kind")))
+            return self.send_json(201, platform.register(b.get("name"), b.get("kind"), b.get("invite_code"), require_invite=True))
         auth = self.headers.get("Authorization", "")
         me = platform.authenticate(auth[7:] if auth.startswith("Bearer ") else "")
         pid = me["id"]
         if path == "/v1/me" and method == "GET":
             return self.send_json(200, me)
+        if path == "/v1/invitations":
+            if method == "GET":
+                return self.send_json(200, platform.invitations(pid))
+            if method == "POST":
+                return self.send_json(201, platform.create_invitation(pid))
+            raise GameError("method_not_allowed", "Method not allowed", 405)
+        invite_match = re.fullmatch(r"/v1/invitations/([a-f0-9]{32})/revoke", path)
+        if invite_match and method == "POST":
+            return self.send_json(200, platform.revoke_invitation(pid, invite_match[1]))
         if path == "/v1/rooms":
             if method == "GET":
                 return self.send_json(200, dict(rooms=platform.list_rooms(pid)))

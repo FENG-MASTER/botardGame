@@ -15,12 +15,13 @@ test("default fetch preserves the browser global receiver for registration and a
   };
   try {
     const api = new API();
-    const identity = await api.register("fengmaster", "registration-key");
+    const identity = await api.register("fengmaster", "invite-code", "registration-key");
     assert.equal(identity.id, "human-1");
     assert.equal(calls[0].url, "/api/v1/identities");
     assert.deepEqual(JSON.parse(calls[0].options.body), {
       name: "fengmaster",
       kind: "human",
+      invite_code: "invite-code",
     });
     assert.equal(
       calls[0].options.headers["X-Registration-Key"],
